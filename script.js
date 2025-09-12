@@ -20,6 +20,7 @@ class LoveLocker {
         this.startDailyCheck();
         this.checkForUnlockableLetters();
         this.initializeEmailJS();
+        this.checkPasswordReset();
     }
 
     setupEventListeners() {
@@ -60,6 +61,22 @@ class LoveLocker {
         // Notification settings
         document.getElementById('emailNotifications').addEventListener('change', (e) => this.updateNotificationSettings('email', e.target.checked));
         document.getElementById('browserNotifications').addEventListener('change', (e) => this.updateNotificationSettings('browser', e.target.checked));
+
+        // Password reset
+        document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.hideModal('loginModal');
+            this.showModal('forgotPasswordModal');
+        });
+
+        document.getElementById('backToLogin').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.hideModal('forgotPasswordModal');
+            this.showModal('loginModal');
+        });
+
+        document.getElementById('forgotPasswordForm').addEventListener('submit', (e) => this.handleForgotPassword(e));
+        document.getElementById('resetPasswordForm').addEventListener('submit', (e) => this.handleResetPassword(e));
 
         // Close modals when clicking outside
         window.addEventListener('click', (e) => {
@@ -258,6 +275,150 @@ class LoveLocker {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return result;
+    }
+
+    // Password Reset Methods
+    async handleForgotPassword(e) {
+        e.preventDefault();
+        const email = document.getElementById('resetEmail').value;
+        
+        try {
+            const user = await this.findUserByEmail(email);
+            if (user) {
+                // Generate reset token
+                const resetToken = this.generateResetToken();
+                user.resetToken = resetToken;
+                user.resetTokenExpiry = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+                
+                // Update user in storage
+                this.updateUserInStorage(user);
+                
+                // Send reset email
+                await this.sendPasswordResetEmail(user, resetToken);
+                
+                this.hideModal('forgotPasswordModal');
+                this.showNotification('Password reset link sent to your email!', 'success');
+            } else {
+                this.showNotification('No account found with that email address', 'error');
+            }
+        } catch (error) {
+            this.showNotification('Failed to send reset email. Please try again.', 'error');
+        }
+    }
+
+    async handleResetPassword(e) {
+        e.preventDefault();
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (newPassword !== confirmPassword) {
+            this.showNotification('Passwords do not match', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+            this.showNotification('Password must be at least 6 characters long', 'error');
+            return;
+        }
+        
+        try {
+            const resetToken = this.getResetTokenFromURL();
+            const user = await this.findUserByResetToken(resetToken);
+            
+            if (user && user.resetTokenExpiry > Date.now()) {
+                // Update password
+                user.password = newPassword;
+                user.resetToken = null;
+                user.resetTokenExpiry = null;
+                
+                // Update user in storage
+                this.updateUserInStorage(user);
+                
+                this.hideModal('resetPasswordModal');
+                this.showNotification('Password reset successfully! You can now login with your new password.', 'success');
+                
+                // Clear URL parameters
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+                this.showNotification('Invalid or expired reset token', 'error');
+            }
+        } catch (error) {
+            this.showNotification('Failed to reset password. Please try again.', 'error');
+        }
+    }
+
+    async findUserByEmail(email) {
+        const users = this.getStoredUsers();
+        return users.find(u => u.email === email) || null;
+    }
+
+    async findUserByResetToken(token) {
+        const users = this.getStoredUsers();
+        return users.find(u => u.resetToken === token) || null;
+    }
+
+    generateResetToken() {
+        // Generate a secure reset token
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < 32; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
+
+    getResetTokenFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('reset_token');
+    }
+
+    updateUserInStorage(updatedUser) {
+        const users = this.getStoredUsers();
+        const userIndex = users.findIndex(u => u.id === updatedUser.id);
+        if (userIndex !== -1) {
+            users[userIndex] = updatedUser;
+            localStorage.setItem('loveLockerUsers', JSON.stringify(users));
+        }
+    }
+
+    async sendPasswordResetEmail(user, resetToken) {
+        const resetUrl = `${window.location.origin}${window.location.pathname}?reset_token=${resetToken}`;
+        
+        const emailData = {
+            to_email: user.email,
+            to_name: user.name,
+            reset_url: resetUrl,
+            app_url: window.location.origin + window.location.pathname
+        };
+
+        try {
+            // Try to send real email if EmailJS is configured
+            if (typeof emailjs !== 'undefined' && this.emailConfig.publicKey !== 'YOUR_EMAILJS_PUBLIC_KEY') {
+                await emailjs.send(
+                    this.emailConfig.serviceId,
+                    'password_reset_template', // You'll need to create this template
+                    emailData
+                );
+                console.log('📧 Password reset email sent via EmailJS');
+            } else {
+                // Fallback to simulation
+                console.log('📧 Password reset email (simulation):', emailData);
+                this.showNotification('Password reset email prepared (EmailJS not configured)', 'info');
+            }
+        } catch (error) {
+            console.error('📧 Password reset email failed:', error);
+            this.showNotification('Failed to send reset email', 'error');
+        }
+
+        return emailData;
+    }
+
+    checkPasswordReset() {
+        const resetToken = this.getResetTokenFromURL();
+        if (resetToken) {
+            // Show reset password modal if token is present
+            this.showModal('resetPasswordModal');
+        }
     }
 
     async handleUnlockLetter(e) {

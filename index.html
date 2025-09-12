@@ -64,7 +64,10 @@
                     </div>
                     <button type="submit" class="btn primary">Login</button>
                 </form>
-                <p class="modal-switch">Don't have an account? <a href="#" id="switchToRegister">Sign up</a></p>
+                <div class="form-footer">
+                    <p class="modal-switch">Don't have an account? <a href="#" id="switchToRegister">Sign up</a></p>
+                    <p class="forgot-password"><a href="#" id="forgotPasswordLink">Forgot your password?</a></p>
+                </div>
             </div>
         </div>
 
@@ -234,6 +237,45 @@
                         <input type="text" id="unlockCode" placeholder="Enter secret code" required>
                     </div>
                     <button type="submit" class="btn primary">Unlock Letter</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Forgot Password Modal -->
+        <div id="forgotPasswordModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Reset Password</h2>
+                <p>Enter your email address and we'll send you a password reset link.</p>
+                <form id="forgotPasswordForm">
+                    <div class="form-group">
+                        <label for="resetEmail">Email Address</label>
+                        <input type="email" id="resetEmail" placeholder="Enter your email" required>
+                    </div>
+                    <button type="submit" class="btn primary">Send Reset Link</button>
+                </form>
+                <div class="form-footer">
+                    <p class="modal-switch">Remember your password? <a href="#" id="backToLogin">Back to Login</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reset Password Modal -->
+        <div id="resetPasswordModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Set New Password</h2>
+                <p>Enter your new password below.</p>
+                <form id="resetPasswordForm">
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" placeholder="Enter new password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
+                    </div>
+                    <button type="submit" class="btn primary">Reset Password</button>
                 </form>
             </div>
         </div>

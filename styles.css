@@ -304,6 +304,25 @@ body {
     text-decoration: underline;
 }
 
+.form-footer {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.forgot-password {
+    margin-top: 10px;
+}
+
+.forgot-password a {
+    color: #ff6b9d;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.forgot-password a:hover {
+    text-decoration: underline;
+}
+
 /* Dashboard Styles */
 .dashboard {
     background: white;
