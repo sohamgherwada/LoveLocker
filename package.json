@@ -1,0 +1,35 @@
+{
+  "name": "love-locker",
+  "version": "1.0.0",
+  "description": "A digital time capsule app for couples to create love letters that unlock on special dates",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve . -p 8000",
+    "dev": "npx live-server --port=8000 --open=/index.html",
+    "build": "echo 'No build process needed - static files only'",
+    "deploy": "vercel --prod",
+    "preview": "vercel"
+  },
+  "keywords": [
+    "love",
+    "time-capsule",
+    "couples",
+    "letters",
+    "romance",
+    "digital",
+    "web-app",
+    "vercel"
+  ],
+  "author": "Love Locker Team",
+  "license": "MIT",
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "serve": "^14.2.1",
+    "vercel": "^32.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/love-locker.git"
+  },
+  "homepage": "https://love-locker.vercel.app"
+}

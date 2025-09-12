@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Love Locker - Your Digital Time Capsule</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- EmailJS for sending emails -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <!-- Configuration -->
+    <script src="config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-heart"></i>
+                <h1>Love Locker</h1>
+            </div>
+            <nav class="nav">
+                <button id="loginBtn" class="nav-btn">Login</button>
+                <button id="registerBtn" class="nav-btn primary">Sign Up</button>
+            </nav>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h2 class="hero-title">Create Timeless Love Letters</h2>
+                <p class="hero-subtitle">Write letters that unlock on special dates. Share secret codes with your loved one to open time capsules of your heart.</p>
+                <div class="hero-features">
+                    <div class="feature">
+                        <i class="fas fa-lock"></i>
+                        <span>Secure & Private</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-clock"></i>
+                        <span>Time-Based Unlocking</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-envelope"></i>
+                        <span>Secret Codes</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Auth Modals -->
+        <div id="loginModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Welcome Back</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn primary">Login</button>
+                </form>
+                <p class="modal-switch">Don't have an account? <a href="#" id="switchToRegister">Sign up</a></p>
+            </div>
+        </div>
+
+        <div id="registerModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Create Your Love Locker</h2>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="registerName">Full Name</label>
+                        <input type="text" id="registerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerEmail">Email</label>
+                        <input type="email" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerAge">Age</label>
+                        <input type="number" id="registerAge" min="18" max="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">Password</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <button type="submit" class="btn primary">Create Account</button>
+                </form>
+                <p class="modal-switch">Already have an account? <a href="#" id="switchToLogin">Login</a></p>
+            </div>
+        </div>
+
+        <!-- Dashboard (hidden initially) -->
+        <div id="dashboard" class="dashboard hidden">
+            <div class="dashboard-header">
+                <h2>Your Love Locker</h2>
+                <div class="user-info">
+                    <span id="userName"></span>
+                    <button id="logoutBtn" class="btn secondary">Logout</button>
+                </div>
+            </div>
+
+            <div class="dashboard-content">
+                <!-- Connection Status -->
+                <div class="connection-status">
+                    <div id="notConnected" class="status-card">
+                        <i class="fas fa-user-plus"></i>
+                        <h3>Find Your Soulmate</h3>
+                        <p>Share your connection code with your partner to start your love journey together.</p>
+                        <div class="connection-code">
+                            <span>Your Code: </span>
+                            <span id="connectionCode" class="code"></span>
+                            <button id="copyCodeBtn" class="btn small">Copy</button>
+                        </div>
+                        <div class="connect-form">
+                            <input type="text" id="partnerCode" placeholder="Enter partner's code">
+                            <button id="connectBtn" class="btn primary">Connect</button>
+                        </div>
+                    </div>
+
+                    <div id="connected" class="status-card hidden">
+                        <i class="fas fa-heart"></i>
+                        <h3>Connected with <span id="partnerName"></span></h3>
+                        <p>You're now locked in love! Create time capsule letters for each other.</p>
+                    </div>
+                </div>
+
+                <!-- Notification Settings -->
+                <div class="notification-settings">
+                    <h3>Notification Settings</h3>
+                    <div class="settings-card">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h4>Email Notifications</h4>
+                                <p>Get notified when letters are ready to unlock</p>
+                            </div>
+                            <div class="setting-control">
+                                <label class="toggle">
+                                    <input type="checkbox" id="emailNotifications" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h4>Browser Notifications</h4>
+                                <p>Show desktop notifications for new letters</p>
+                            </div>
+                            <div class="setting-control">
+                                <label class="toggle">
+                                    <input type="checkbox" id="browserNotifications">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h4>Daily Reminders</h4>
+                                <p>Check for unlockable letters every hour</p>
+                            </div>
+                            <div class="setting-control">
+                                <span class="status-badge active">Active</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Letters Section -->
+                <div class="letters-section">
+                    <div class="section-header">
+                        <h3>Love Letters</h3>
+                        <button id="createLetterBtn" class="btn primary">
+                            <i class="fas fa-plus"></i> New Letter
+                        </button>
+                    </div>
+
+                    <div id="lettersList" class="letters-list">
+                        <!-- Letters will be dynamically added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Letter Modal -->
+        <div id="createLetterModal" class="modal">
+            <div class="modal-content large">
+                <span class="close">&times;</span>
+                <h2>Create a Time Capsule Letter</h2>
+                <form id="createLetterForm">
+                    <div class="form-group">
+                        <label for="letterTitle">Letter Title</label>
+                        <input type="text" id="letterTitle" placeholder="e.g., Our Anniversary Letter" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="unlockDate">Unlock Date</label>
+                        <input type="date" id="unlockDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="letterContent">Your Love Letter</label>
+                        <textarea id="letterContent" rows="10" placeholder="Write your heart out..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <div class="info-box">
+                            <i class="fas fa-info-circle"></i>
+                            <p>A random secret code will be generated automatically. Your partner will receive this code via email when the letter is ready to unlock.</p>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn primary">Create Time Capsule</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- View Letter Modal -->
+        <div id="viewLetterModal" class="modal">
+            <div class="modal-content large">
+                <span class="close">&times;</span>
+                <div id="letterContent"></div>
+            </div>
+        </div>
+
+        <!-- Unlock Letter Modal -->
+        <div id="unlockLetterModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Unlock Love Letter</h2>
+                <p>Enter the secret code to unlock this time capsule:</p>
+                <form id="unlockLetterForm">
+                    <div class="form-group">
+                        <input type="text" id="unlockCode" placeholder="Enter secret code" required>
+                    </div>
+                    <button type="submit" class="btn primary">Unlock Letter</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
