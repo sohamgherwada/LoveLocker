@@ -156,40 +156,107 @@ class LoveLocker {
         }
     }
 
-    // User Management (Simulated - in real app, this would connect to a backend)
+    // User Management via API
     async authenticateUser(email, password) {
-        const users = this.getStoredUsers();
-        const user = users.find(u => u.email === email && u.password === password);
-        return user || null;
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'login',
+                    email,
+                    password
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                return result.user;
+            }
+            return null;
+        } catch (error) {
+            console.error('Login API error:', error);
+            return null;
+        }
     }
 
     async createUser(userData) {
-        const users = this.getStoredUsers();
-        
-        // Check if user already exists
-        if (users.find(u => u.email === userData.email)) {
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'register',
+                    ...userData
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                return result.user;
+            }
+            return null;
+        } catch (error) {
+            console.error('Registration API error:', error);
             return null;
         }
-
-        const newUser = {
-            id: Date.now().toString(),
-            ...userData,
-            connectionCode: this.generateConnectionCode(),
-            createdAt: new Date().toISOString()
-        };
-
-        users.push(newUser);
-        localStorage.setItem('loveLockerUsers', JSON.stringify(users));
-        return newUser;
     }
 
-    getStoredUsers() {
-        const users = localStorage.getItem('loveLockerUsers');
-        return users ? JSON.parse(users) : [];
+    async getUser(userId) {
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'getUser',
+                    userId
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                return result.user;
+            }
+            return null;
+        } catch (error) {
+            console.error('Get user API error:', error);
+            return null;
+        }
     }
 
-    generateConnectionCode() {
-        return Math.random().toString(36).substring(2, 8).toUpperCase();
+    async updateUser(userId, updates) {
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'updateUser',
+                    userId,
+                    updates
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                return result.user;
+            }
+            return null;
+        } catch (error) {
+            console.error('Update user API error:', error);
+            return null;
+        }
     }
 
     // Connection Management
@@ -201,38 +268,35 @@ class LoveLocker {
             return;
         }
 
-        const users = this.getStoredUsers();
-        const partner = users.find(u => u.connectionCode === partnerCode && u.id !== this.currentUser.id);
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'connectUsers',
+                    userId: this.currentUser.id,
+                    partnerCode
+                })
+            });
 
-        if (!partner) {
-            this.showNotification('Invalid connection code', 'error');
-            return;
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                this.partner = result.partner;
+                this.currentUser.partner_id = result.partner.id;
+                this.saveUserData();
+                this.checkConnectionStatus();
+                this.showNotification(`Connected with ${result.partner.name}!`, 'success');
+                document.getElementById('partnerCode').value = '';
+            } else {
+                this.showNotification(result.error || 'Connection failed', 'error');
+            }
+        } catch (error) {
+            console.error('Connection API error:', error);
+            this.showNotification('Connection failed. Please try again.', 'error');
         }
-
-        // Check if either user is already connected
-        if (this.currentUser.partnerId || partner.partnerId) {
-            this.showNotification('One of you is already connected to someone else', 'error');
-            return;
-        }
-
-        // Create connection
-        this.currentUser.partnerId = partner.id;
-        partner.partnerId = this.currentUser.id;
-
-        // Update users in storage
-        const updatedUsers = users.map(u => {
-            if (u.id === this.currentUser.id) return this.currentUser;
-            if (u.id === partner.id) return partner;
-            return u;
-        });
-
-        localStorage.setItem('loveLockerUsers', JSON.stringify(updatedUsers));
-        
-        this.partner = partner;
-        this.saveUserData();
-        this.checkConnectionStatus();
-        this.showNotification(`Connected with ${partner.name}!`, 'success');
-        document.getElementById('partnerCode').value = '';
     }
 
     copyConnectionCode() {
@@ -248,31 +312,40 @@ class LoveLocker {
         const title = document.getElementById('letterTitle').value;
         const unlockDate = document.getElementById('unlockDate').value;
         const content = document.getElementById('letterContent').value;
-        
-        // Generate random secret code
-        const secretCode = this.generateSecretCode();
 
-        const letter = {
-            id: Date.now().toString(),
-            title,
-            content,
-            secretCode,
-            unlockDate,
-            createdAt: new Date().toISOString(),
-            authorId: this.currentUser.id,
-            recipientId: this.partner.id,
-            isUnlocked: false,
-            notificationSent: false
-        };
+        try {
+            const response = await fetch('/api/letters', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'create',
+                    authorId: this.currentUser.id,
+                    recipientId: this.partner.id,
+                    title,
+                    content,
+                    unlockDate
+                })
+            });
 
-        this.letters.push(letter);
-        this.saveLetters();
-        this.displayLetters();
-        this.hideModal('createLetterModal');
-        this.showNotification('Time capsule letter created! Your partner will receive the secret code via email when it\'s ready to unlock.', 'success');
-        
-        // Reset form
-        document.getElementById('createLetterForm').reset();
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                this.letters.push(result.letter);
+                this.displayLetters();
+                this.hideModal('createLetterModal');
+                this.showNotification('Time capsule letter created! Your partner will receive the secret code via email when it\'s ready to unlock.', 'success');
+                
+                // Reset form
+                document.getElementById('createLetterForm').reset();
+            } else {
+                this.showNotification(result.error || 'Failed to create letter', 'error');
+            }
+        } catch (error) {
+            console.error('Create letter API error:', error);
+            this.showNotification('Failed to create letter. Please try again.', 'error');
+        }
     }
 
     generateSecretCode() {
@@ -569,20 +642,19 @@ class LoveLocker {
 
     // Data Management
     saveUserData() {
-        console.log('Saving user data:', { currentUser: this.currentUser, partner: this.partner });
+        // Store current user and partner in session storage for the current session
         if (this.currentUser) {
-            localStorage.setItem('loveLockerCurrentUser', JSON.stringify(this.currentUser));
-            console.log('Current user saved to localStorage');
+            sessionStorage.setItem('loveLockerCurrentUser', JSON.stringify(this.currentUser));
         }
         if (this.partner) {
-            localStorage.setItem('loveLockerPartner', JSON.stringify(this.partner));
-            console.log('Partner saved to localStorage');
+            sessionStorage.setItem('loveLockerPartner', JSON.stringify(this.partner));
         }
     }
 
     loadUserData() {
-        const userData = localStorage.getItem('loveLockerCurrentUser');
-        const partnerData = localStorage.getItem('loveLockerPartner');
+        // Load user data from session storage
+        const userData = sessionStorage.getItem('loveLockerCurrentUser');
+        const partnerData = sessionStorage.getItem('loveLockerPartner');
         
         if (userData) {
             this.currentUser = JSON.parse(userData);
@@ -592,13 +664,33 @@ class LoveLocker {
         }
     }
 
-    saveLetters() {
-        localStorage.setItem('loveLockerLetters', JSON.stringify(this.letters));
-    }
+    async loadLetters() {
+        if (!this.currentUser) return;
 
-    loadLetters() {
-        const letters = localStorage.getItem('loveLockerLetters');
-        this.letters = letters ? JSON.parse(letters) : [];
+        try {
+            const response = await fetch('/api/letters', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'getByUser',
+                    userId: this.currentUser.id
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                this.letters = result.letters;
+            } else {
+                console.error('Failed to load letters:', result.error);
+                this.letters = [];
+            }
+        } catch (error) {
+            console.error('Load letters API error:', error);
+            this.letters = [];
+        }
     }
 
     // UI Management

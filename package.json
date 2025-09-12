@@ -23,7 +23,8 @@
   "author": "Love Locker Team",
   "license": "MIT",
   "dependencies": {
-    "nodemailer": "^6.9.7"
+    "nodemailer": "^6.9.7",
+    "@supabase/supabase-js": "^2.38.4"
   },
   "devDependencies": {
     "live-server": "^1.2.2",
