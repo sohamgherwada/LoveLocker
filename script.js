@@ -107,19 +107,25 @@ class LoveLocker {
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
 
+        console.log('Login attempt:', { email, password: '***' });
+
         try {
             const user = await this.authenticateUser(email, password);
             if (user) {
+                console.log('User found:', user);
                 this.currentUser = user;
                 this.saveUserData();
+                console.log('User data saved to localStorage');
                 this.hideModal('loginModal');
                 this.showDashboard();
                 this.showNotification('Welcome back!', 'success');
                 this.requestNotificationPermission();
             } else {
+                console.log('No user found with these credentials');
                 this.showNotification('Invalid credentials', 'error');
             }
         } catch (error) {
+            console.error('Login error:', error);
             this.showNotification('Login failed. Please try again.', 'error');
         }
     }
@@ -131,19 +137,25 @@ class LoveLocker {
         const age = document.getElementById('registerAge').value;
         const password = document.getElementById('registerPassword').value;
 
+        console.log('Registration attempt:', { name, email, age, password: '***' });
+
         try {
             const user = await this.createUser({ name, email, age, password });
             if (user) {
+                console.log('User created:', user);
                 this.currentUser = user;
                 this.saveUserData();
+                console.log('User data saved to localStorage');
                 this.hideModal('registerModal');
                 this.showDashboard();
                 this.showNotification('Account created successfully!', 'success');
                 this.requestNotificationPermission();
             } else {
+                console.log('User creation failed - email might already exist');
                 this.showNotification('Registration failed. Email might already exist.', 'error');
             }
         } catch (error) {
+            console.error('Registration error:', error);
             this.showNotification('Registration failed. Please try again.', 'error');
         }
     }
@@ -561,11 +573,14 @@ class LoveLocker {
 
     // Data Management
     saveUserData() {
+        console.log('Saving user data:', { currentUser: this.currentUser, partner: this.partner });
         if (this.currentUser) {
             localStorage.setItem('loveLockerCurrentUser', JSON.stringify(this.currentUser));
+            console.log('Current user saved to localStorage');
         }
         if (this.partner) {
             localStorage.setItem('loveLockerPartner', JSON.stringify(this.partner));
+            console.log('Partner saved to localStorage');
         }
     }
 
