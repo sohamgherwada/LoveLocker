@@ -140,6 +140,68 @@ body {
     backdrop-filter: blur(5px);
 }
 
+/* Verification Modal Specific Styles */
+#verificationModal .modal-content {
+    text-align: center;
+}
+
+#verificationModal .form-group input {
+    text-align: center;
+    font-size: 1.5rem;
+    letter-spacing: 0.5rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+.verification-timer {
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.verification-timer span {
+    font-weight: bold;
+    color: #ff6b9d;
+}
+
+#resendVerification {
+    color: #ff6b9d;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+#resendVerification:hover {
+    text-decoration: underline;
+}
+
+/* Letter Display Styles */
+.letters-section {
+    margin-bottom: 30px;
+}
+
+.letters-section h4 {
+    color: #ff6b9d;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.received-letter {
+    border-left: 4px solid #ff6b9d;
+}
+
+.sent-letter {
+    border-left: 4px solid #667eea;
+}
+
+.letter-author,
+.letter-recipient {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 5px;
+    font-style: italic;
+}
+
 .modal-content {
     background-color: white;
     margin: 5% auto;

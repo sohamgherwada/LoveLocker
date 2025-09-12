@@ -45,6 +45,7 @@ class LoveLocker {
         // Form submissions
         document.getElementById('loginForm').addEventListener('submit', (e) => this.handleLogin(e));
         document.getElementById('registerForm').addEventListener('submit', (e) => this.handleRegister(e));
+        document.getElementById('verificationForm').addEventListener('submit', (e) => this.handleEmailVerification(e));
         document.getElementById('createLetterForm').addEventListener('submit', (e) => this.handleCreateLetter(e));
         document.getElementById('unlockLetterForm').addEventListener('submit', (e) => this.handleUnlockLetter(e));
 
@@ -73,6 +74,12 @@ class LoveLocker {
 
         document.getElementById('forgotPasswordForm').addEventListener('submit', (e) => this.handleForgotPassword(e));
         document.getElementById('resetPasswordForm').addEventListener('submit', (e) => this.handleResetPassword(e));
+
+        // Email verification
+        document.getElementById('resendVerification').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.resendVerificationCode();
+        });
 
         // Close modals when clicking outside
         window.addEventListener('click', (e) => {
@@ -106,19 +113,39 @@ class LoveLocker {
         console.log('Login attempt:', { email, password: '***' });
 
         try {
-            const user = await this.authenticateUser(email, password);
-            if (user) {
-                console.log('User found:', user);
-                this.currentUser = user;
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'login',
+                    email,
+                    password
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                console.log('User found:', result.user);
+                this.currentUser = result.user;
                 this.saveUserData();
                 console.log('User data saved to localStorage');
                 this.hideModal('loginModal');
                 this.showDashboard();
                 this.showNotification('Welcome back!', 'success');
                 this.requestNotificationPermission();
+            } else if (result.needsVerification) {
+                console.log('Email needs verification');
+                this.currentUser = { id: result.userId, email: email };
+                this.saveUserData();
+                this.hideModal('loginModal');
+                this.showVerificationModal();
+                this.showNotification(result.error, 'warning');
             } else {
-                console.log('No user found with these credentials');
-                this.showNotification('Invalid credentials', 'error');
+                console.log('Login failed:', result.error);
+                this.showNotification(result.error || 'Invalid credentials', 'error');
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -136,23 +163,141 @@ class LoveLocker {
         console.log('Registration attempt:', { name, email, age, password: '***' });
 
         try {
-            const user = await this.createUser({ name, email, age, password });
-            if (user) {
-                console.log('User created:', user);
-                this.currentUser = user;
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'register',
+                    name, email, age, password
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                console.log('User created:', result.user);
+                this.currentUser = result.user;
                 this.saveUserData();
                 console.log('User data saved to localStorage');
                 this.hideModal('registerModal');
-                this.showDashboard();
-                this.showNotification('Account created successfully!', 'success');
-                this.requestNotificationPermission();
+                this.showVerificationModal();
+                this.showNotification(result.message || 'Registration successful! Please check your email for verification code.', 'success');
             } else {
-                console.log('User creation failed - email might already exist');
-                this.showNotification('Registration failed. Email might already exist.', 'error');
+                console.log('User creation failed:', result.error);
+                this.showNotification(result.error || 'Registration failed. Please try again.', 'error');
             }
         } catch (error) {
             console.error('Registration error:', error);
             this.showNotification('Registration failed. Please try again.', 'error');
+        }
+    }
+
+    async handleEmailVerification(e) {
+        e.preventDefault();
+        const verificationCode = document.getElementById('verificationCode').value;
+
+        if (!verificationCode || verificationCode.length !== 6) {
+            this.showNotification('Please enter a valid 6-digit verification code', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'verifyEmail',
+                    userId: this.currentUser.id,
+                    verificationCode
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                console.log('Email verified:', result.user);
+                this.currentUser = result.user;
+                this.saveUserData();
+                this.hideModal('verificationModal');
+                this.showDashboard();
+                this.showNotification('Email verified successfully! Welcome to LoveLocker!', 'success');
+                this.requestNotificationPermission();
+                this.stopVerificationTimer();
+            } else {
+                console.log('Verification failed:', result.error);
+                this.showNotification(result.error || 'Invalid verification code', 'error');
+            }
+        } catch (error) {
+            console.error('Verification error:', error);
+            this.showNotification('Verification failed. Please try again.', 'error');
+        }
+    }
+
+    async resendVerificationCode() {
+        if (!this.currentUser || !this.currentUser.id) {
+            this.showNotification('No user found. Please register again.', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'resendVerification',
+                    userId: this.currentUser.id
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                this.showNotification('Verification code sent! Please check your email.', 'success');
+                this.startVerificationTimer();
+            } else {
+                this.showNotification(result.error || 'Failed to resend verification code', 'error');
+            }
+        } catch (error) {
+            console.error('Resend verification error:', error);
+            this.showNotification('Failed to resend verification code. Please try again.', 'error');
+        }
+    }
+
+    showVerificationModal() {
+        this.showModal('verificationModal');
+        this.startVerificationTimer();
+        // Clear the verification code input
+        document.getElementById('verificationCode').value = '';
+    }
+
+    startVerificationTimer() {
+        let timeLeft = 15 * 60; // 15 minutes in seconds
+        const timerElement = document.getElementById('timer');
+        
+        this.verificationTimer = setInterval(() => {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 0) {
+                this.stopVerificationTimer();
+                this.showNotification('Verification code expired. Please request a new one.', 'warning');
+            }
+            
+            timeLeft--;
+        }, 1000);
+    }
+
+    stopVerificationTimer() {
+        if (this.verificationTimer) {
+            clearInterval(this.verificationTimer);
+            this.verificationTimer = null;
         }
     }
 
@@ -313,6 +458,11 @@ class LoveLocker {
         const unlockDate = document.getElementById('unlockDate').value;
         const content = document.getElementById('letterContent').value;
 
+        if (!this.partner) {
+            this.showNotification('Please connect with your partner first!', 'error');
+            return;
+        }
+
         try {
             const response = await fetch('/api/letters', {
                 method: 'POST',
@@ -332,10 +482,11 @@ class LoveLocker {
             const result = await response.json();
             
             if (response.ok && result.success) {
+                // Add the new letter to our local array
                 this.letters.push(result.letter);
                 this.displayLetters();
                 this.hideModal('createLetterModal');
-                this.showNotification('Time capsule letter created! Your partner will receive the secret code via email when it\'s ready to unlock.', 'success');
+                this.showNotification(`Time capsule letter created! Your partner will receive the secret code "${result.letter.secret_code}" via email when it's ready to unlock.`, 'success');
                 
                 // Reset form
                 document.getElementById('createLetterForm').reset();
@@ -550,17 +701,39 @@ class LoveLocker {
         const unlockCode = document.getElementById('unlockCode').value;
         const letterId = this.currentUnlockLetterId;
 
-        const letter = this.letters.find(l => l.id === letterId);
-        
-        if (letter && letter.secretCode === unlockCode) {
-            letter.isUnlocked = true;
-            this.saveLetters();
-            this.displayLetters();
-            this.hideModal('unlockLetterModal');
-            this.showLetter(letter);
-            this.showNotification('Letter unlocked!', 'success');
-        } else {
-            this.showNotification('Invalid secret code', 'error');
+        try {
+            const response = await fetch('/api/letters', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'unlock',
+                    letterId: letterId,
+                    secretCode: unlockCode
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                // Update local letter data
+                const letter = this.letters.find(l => l.id === letterId);
+                if (letter) {
+                    letter.is_unlocked = true;
+                    letter.unlocked_at = new Date().toISOString();
+                }
+                
+                this.displayLetters();
+                this.hideModal('unlockLetterModal');
+                this.showLetter(result.letter);
+                this.showNotification('Letter unlocked!', 'success');
+            } else {
+                this.showNotification(result.error || 'Invalid secret code', 'error');
+            }
+        } catch (error) {
+            console.error('Unlock letter error:', error);
+            this.showNotification('Failed to unlock letter. Please try again.', 'error');
         }
         
         document.getElementById('unlockCode').value = '';
@@ -573,7 +746,7 @@ class LoveLocker {
         content.innerHTML = `
             <div class="letter-view">
                 <h2>${letter.title}</h2>
-                <p class="letter-date">Created on ${new Date(letter.createdAt).toLocaleDateString()}</p>
+                <p class="letter-date">Created on ${new Date(letter.created_at).toLocaleDateString()}</p>
                 <div class="letter-text">
                     ${letter.content.replace(/\n/g, '<br>')}
                 </div>
@@ -592,14 +765,21 @@ class LoveLocker {
             return;
         }
 
-        lettersList.innerHTML = this.letters
-            .filter(letter => letter.recipientId === this.currentUser.id)
-            .map(letter => {
-                const canUnlock = letter.unlockDate <= today;
-                const isUnlocked = letter.isUnlocked;
+        // Separate letters into received and sent
+        const receivedLetters = this.letters.filter(letter => letter.recipient_id === this.currentUser.id);
+        const sentLetters = this.letters.filter(letter => letter.author_id === this.currentUser.id);
+
+        let html = '';
+
+        // Display received letters (letters TO the current user)
+        if (receivedLetters.length > 0) {
+            html += '<div class="letters-section"><h4>📬 Letters for You</h4>';
+            html += receivedLetters.map(letter => {
+                const canUnlock = letter.unlock_date <= today;
+                const isUnlocked = letter.is_unlocked;
                 
                 return `
-                    <div class="letter-card" onclick="${canUnlock && !isUnlocked ? `this.unlockLetter('${letter.id}')` : isUnlocked ? `this.showLetter('${letter.id}')` : ''}">
+                    <div class="letter-card received-letter" data-letter-id="${letter.id}">
                         <div class="letter-header">
                             <span class="letter-title">${letter.title}</span>
                             <span class="letter-status ${isUnlocked ? 'unlocked' : 'locked'}">
@@ -607,32 +787,64 @@ class LoveLocker {
                             </span>
                         </div>
                         <div class="letter-date">
-                            Unlocks on ${new Date(letter.unlockDate).toLocaleDateString()}
+                            Unlocks on ${new Date(letter.unlock_date).toLocaleDateString()}
+                        </div>
+                        <div class="letter-author">
+                            From: ${this.partner ? this.partner.name : 'Your Partner'}
                         </div>
                         ${isUnlocked ? `<div class="letter-preview">${letter.content.substring(0, 100)}...</div>` : ''}
                     </div>
                 `;
             }).join('');
+            html += '</div>';
+        }
 
-        // Add click handlers
-        this.letters
-            .filter(letter => letter.recipientId === this.currentUser.id)
-            .forEach(letter => {
-                const canUnlock = letter.unlockDate <= new Date().toISOString().split('T')[0];
-                const isUnlocked = letter.isUnlocked;
+        // Display sent letters (letters FROM the current user)
+        if (sentLetters.length > 0) {
+            html += '<div class="letters-section"><h4>📤 Letters You Sent</h4>';
+            html += sentLetters.map(letter => {
+                const canUnlock = letter.unlock_date <= today;
+                const isUnlocked = letter.is_unlocked;
                 
+                return `
+                    <div class="letter-card sent-letter" data-letter-id="${letter.id}">
+                        <div class="letter-header">
+                            <span class="letter-title">${letter.title}</span>
+                            <span class="letter-status ${isUnlocked ? 'unlocked' : 'locked'}">
+                                ${isUnlocked ? 'Unlocked by Partner' : canUnlock ? 'Ready for Partner' : 'Locked'}
+                            </span>
+                        </div>
+                        <div class="letter-date">
+                            Unlocks on ${new Date(letter.unlock_date).toLocaleDateString()}
+                        </div>
+                        <div class="letter-recipient">
+                            To: ${this.partner ? this.partner.name : 'Your Partner'}
+                        </div>
+                        ${isUnlocked ? `<div class="letter-preview">${letter.content.substring(0, 100)}...</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            html += '</div>';
+        }
+
+        lettersList.innerHTML = html;
+
+        // Add click handlers for received letters only
+        receivedLetters.forEach(letter => {
+            const canUnlock = letter.unlock_date <= new Date().toISOString().split('T')[0];
+            const isUnlocked = letter.is_unlocked;
+            const card = document.querySelector(`[data-letter-id="${letter.id}"]`);
+            
+            if (card) {
                 if (canUnlock && !isUnlocked) {
-                    const card = document.querySelector(`[onclick*="${letter.id}"]`);
-                    if (card) {
-                        card.onclick = () => this.unlockLetter(letter.id);
-                    }
+                    card.onclick = () => this.unlockLetter(letter.id);
+                    card.style.cursor = 'pointer';
                 } else if (isUnlocked) {
-                    const card = document.querySelector(`[onclick*="${letter.id}"]`);
-                    if (card) {
-                        card.onclick = () => this.showLetter(letter);
-                    }
+                    card.onclick = () => this.showLetter(letter);
+                    card.style.cursor = 'pointer';
                 }
-            });
+            }
+        });
     }
 
     unlockLetter(letterId) {
@@ -668,25 +880,45 @@ class LoveLocker {
         if (!this.currentUser) return;
 
         try {
-            const response = await fetch('/api/letters', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'getByUser',
-                    userId: this.currentUser.id
+            // Load both received and sent letters
+            const [receivedResponse, sentResponse] = await Promise.all([
+                // Get letters received by current user
+                fetch('/api/letters', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'getByUser',
+                        userId: this.currentUser.id,
+                        type: 'received'
+                    })
+                }),
+                // Get letters sent by current user
+                fetch('/api/letters', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'getByUser',
+                        userId: this.currentUser.id,
+                        type: 'sent'
+                    })
                 })
-            });
+            ]);
 
-            const result = await response.json();
+            const receivedResult = await receivedResponse.json();
+            const sentResult = await sentResponse.json();
             
-            if (response.ok && result.success) {
-                this.letters = result.letters;
-            } else {
-                console.error('Failed to load letters:', result.error);
-                this.letters = [];
+            let allLetters = [];
+            
+            if (receivedResponse.ok && receivedResult.success) {
+                allLetters = [...allLetters, ...receivedResult.letters];
             }
+            
+            if (sentResponse.ok && sentResult.success) {
+                allLetters = [...allLetters, ...sentResult.letters];
+            }
+            
+            this.letters = allLetters;
+            console.log('Loaded letters:', this.letters.length);
         } catch (error) {
             console.error('Load letters API error:', error);
             this.letters = [];
@@ -744,38 +976,58 @@ class LoveLocker {
         this.checkForUnlockableLetters();
     }
 
-    checkForUnlockableLetters() {
-        if (!this.currentUser || !this.partner) return;
+    async checkForUnlockableLetters() {
+        if (!this.currentUser) return;
 
-        const today = new Date().toISOString().split('T')[0];
-        const unlockableLetters = this.letters.filter(letter => 
-            letter.recipientId === this.currentUser.id && 
-            letter.unlockDate <= today && 
-            !letter.isUnlocked &&
-            !letter.notificationSent
-        );
+        try {
+            const response = await fetch('/api/letters', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'getUnlockable',
+                    userId: this.currentUser.id
+                })
+            });
 
-        if (unlockableLetters.length > 0) {
-            this.sendUnlockNotifications(unlockableLetters);
+            const result = await response.json();
+            
+            if (response.ok && result.success && result.letters.length > 0) {
+                this.sendUnlockNotifications(result.letters);
+            }
+        } catch (error) {
+            console.error('Check unlockable letters error:', error);
         }
     }
 
     async sendUnlockNotifications(letters) {
         for (const letter of letters) {
-            // Mark notification as sent
-            letter.notificationSent = true;
-            
-            // Send email notification (simulated)
-            await this.sendEmailNotification(letter);
-            
-            // Show browser notification
-            this.showBrowserNotification(letter);
-            
-            // Show in-app notification
-            this.showNotification(`💌 New letter ready to unlock: "${letter.title}"`, 'success');
+            try {
+                // Mark notification as sent in database
+                await fetch('/api/letters', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'markNotificationSent',
+                        letterId: letter.id
+                    })
+                });
+                
+                // Send email notification
+                await this.sendEmailNotification(letter);
+                
+                // Show browser notification
+                this.showBrowserNotification(letter);
+                
+                // Show in-app notification
+                this.showNotification(`💌 New letter ready to unlock: "${letter.title}"`, 'success');
+            } catch (error) {
+                console.error('Error sending notification for letter:', letter.id, error);
+            }
         }
-        
-        this.saveLetters();
     }
 
     // Email functionality now handled by Gmail serverless function

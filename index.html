@@ -277,6 +277,26 @@
                 </form>
             </div>
         </div>
+
+        <!-- Email Verification Modal -->
+        <div id="verificationModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Verify Your Email</h2>
+                <p>We've sent a 6-digit verification code to your email address. Please enter it below to complete your registration.</p>
+                <form id="verificationForm">
+                    <div class="form-group">
+                        <label for="verificationCode">Verification Code</label>
+                        <input type="text" id="verificationCode" placeholder="Enter 6-digit code" maxlength="6" required>
+                    </div>
+                    <button type="submit" class="btn primary">Verify Email</button>
+                </form>
+                <div class="form-footer">
+                    <p class="modal-switch">Didn't receive the code? <a href="#" id="resendVerification">Resend Code</a></p>
+                    <p class="verification-timer">Code expires in: <span id="timer">15:00</span></p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

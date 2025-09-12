@@ -32,6 +32,8 @@ export default async function handler(req, res) {
         return await handleUnlockLetter(req, res, data)
       case 'getUnlockable':
         return await handleGetUnlockableLetters(req, res, data)
+      case 'markNotificationSent':
+        return await handleMarkNotificationSent(req, res, data)
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -81,17 +83,27 @@ async function handleCreateLetter(req, res, data) {
 }
 
 async function handleGetLettersByUser(req, res, data) {
-  const { userId } = data
+  const { userId, type = 'all' } = data
 
   if (!userId) {
     return res.status(400).json({ error: 'Missing user ID' })
   }
 
-  const { data: letters, error } = await supabase
+  let query = supabase
     .from('letters')
     .select('*')
-    .eq('recipient_id', userId)
     .order('created_at', { ascending: false })
+
+  if (type === 'received') {
+    query = query.eq('recipient_id', userId)
+  } else if (type === 'sent') {
+    query = query.eq('author_id', userId)
+  } else {
+    // Get both sent and received letters
+    query = query.or(`recipient_id.eq.${userId},author_id.eq.${userId}`)
+  }
+
+  const { data: letters, error } = await query
 
   if (error) {
     console.error('Get letters error:', error)
@@ -176,6 +188,34 @@ async function handleGetUnlockableLetters(req, res, data) {
   return res.status(200).json({
     success: true,
     letters
+  })
+}
+
+async function handleMarkNotificationSent(req, res, data) {
+  const { letterId } = data
+
+  if (!letterId) {
+    return res.status(400).json({ error: 'Missing letter ID' })
+  }
+
+  const { data: letter, error } = await supabase
+    .from('letters')
+    .update({ 
+      notification_sent: true,
+      notification_sent_at: new Date().toISOString()
+    })
+    .eq('id', letterId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Mark notification sent error:', error)
+    return res.status(500).json({ error: 'Failed to mark notification as sent' })
+  }
+
+  return res.status(200).json({
+    success: true,
+    letter
   })
 }
 
