@@ -13,19 +13,12 @@ const LOVELOCKER_CONFIG = {
         return 'https://love-locker.vercel.app';
     })(),
     
-    // EmailJS Configuration
-    emailjs: {
-        serviceId: 'gmail',
-        templateId: 'love_locker_notification',
-        publicKey: process.env.EMAILJS_PUBLIC_KEY || 'YOUR_EMAILJS_PUBLIC_KEY' // Use environment variable
-    },
-    
     // App Settings
     app: {
         name: 'LoveLocker',
         version: '1.0.0',
         checkInterval: 60 * 60 * 1000, // Check for unlockable letters every hour
-        environment: process.env.NODE_ENV || 'development'
+        environment: 'production'
     }
 };
 

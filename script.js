@@ -5,11 +5,8 @@ class LoveLocker {
         this.currentUser = null;
         this.partner = null;
         this.letters = [];
-        this.emailConfig = window.LOVELOCKER_CONFIG?.emailjs || {
-            serviceId: 'gmail',
-            templateId: 'love_locker_notification',
-            publicKey: 'YOUR_EMAILJS_PUBLIC_KEY'
-        };
+        // Gmail integration via serverless function
+        this.emailEnabled = true;
         this.init();
     }
 
@@ -19,7 +16,6 @@ class LoveLocker {
         this.checkConnectionStatus();
         this.startDailyCheck();
         this.checkForUnlockableLetters();
-        this.initializeEmailJS();
         this.checkPasswordReset();
     }
 
@@ -690,15 +686,7 @@ class LoveLocker {
         this.saveLetters();
     }
 
-    initializeEmailJS() {
-        // Initialize EmailJS with your public key
-        if (typeof emailjs !== 'undefined' && this.emailConfig.publicKey !== 'YOUR_EMAILJS_PUBLIC_KEY') {
-            emailjs.init(this.emailConfig.publicKey);
-            console.log('📧 EmailJS initialized successfully');
-        } else {
-            console.log('📧 EmailJS not configured - using simulation mode');
-        }
-    }
+    // Email functionality now handled by Gmail serverless function
 
     async sendEmailNotification(letter) {
         // Check if email notifications are enabled
