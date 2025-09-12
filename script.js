@@ -383,27 +383,31 @@ class LoveLocker {
 
     async sendPasswordResetEmail(user, resetToken) {
         const resetUrl = `${window.location.origin}${window.location.pathname}?reset_token=${resetToken}`;
+        const appUrl = window.location.origin + window.location.pathname;
         
         const emailData = {
-            to_email: user.email,
-            to_name: user.name,
-            reset_url: resetUrl,
-            app_url: window.location.origin + window.location.pathname
+            to: user.email,
+            subject: `💕 LoveLocker - Password Reset Request`,
+            html: this.generatePasswordResetEmail(user, resetUrl, appUrl),
+            type: 'password_reset'
         };
 
         try {
-            // Try to send real email if EmailJS is configured
-            if (typeof emailjs !== 'undefined' && this.emailConfig.publicKey !== 'YOUR_EMAILJS_PUBLIC_KEY') {
-                await emailjs.send(
-                    this.emailConfig.serviceId,
-                    'password_reset_template', // You'll need to create this template
-                    emailData
-                );
-                console.log('📧 Password reset email sent via EmailJS');
+            // Send email via Gmail API
+            const response = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(emailData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                console.log('📧 Password reset email sent via Gmail:', result.messageId);
             } else {
-                // Fallback to simulation
-                console.log('📧 Password reset email (simulation):', emailData);
-                this.showNotification('Password reset email prepared (EmailJS not configured)', 'info');
+                throw new Error(result.error || 'Failed to send email');
             }
         } catch (error) {
             console.error('📧 Password reset email failed:', error);
@@ -411,6 +415,45 @@ class LoveLocker {
         }
 
         return emailData;
+    }
+
+    generatePasswordResetEmail(user, resetUrl, appUrl) {
+        return `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h1 style="text-align: center; font-family: 'Dancing Script', cursive; font-size: 2.5rem; margin-bottom: 20px;">💕 LoveLocker</h1>
+                
+                <div style="background: white; color: #333; padding: 30px; border-radius: 15px; margin: 20px 0;">
+                    <h2 style="color: #ff6b9d; margin-bottom: 15px;">Password Reset Request 🔐</h2>
+                    
+                    <p>Dear ${user.name},</p>
+                    
+                    <p>We received a request to reset your LoveLocker password. If you made this request, click the button below to set a new password.</p>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #ff6b9d;">
+                        <h3 style="margin: 0 0 10px 0; color: #333;">Reset Your Password</h3>
+                        <p style="margin: 5px 0; color: #666;">This link will expire in 24 hours for security reasons.</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${resetUrl}" style="background: linear-gradient(135deg, #ff6b9d, #ff8fab); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Reset Password</a>
+                    </div>
+                    
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h4 style="margin: 0 0 10px 0; color: #856404;">⚠️ Security Notice</h4>
+                        <p style="margin: 0; color: #856404; font-size: 0.9rem;">If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; border: 1px solid #e1e5e9; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                        <p style="margin: 0 0 10px 0; color: #666; font-size: 0.9rem;">Can't click the button? Copy and paste this link:</p>
+                        <a href="${resetUrl}" style="color: #ff6b9d; text-decoration: none; font-weight: bold; word-break: break-all;">${resetUrl}</a>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 0.9rem; text-align: center; margin-top: 30px;">
+                        Made with 💕 by LoveLocker
+                    </p>
+                </div>
+            </div>
+        `;
     }
 
     checkPasswordReset() {
@@ -651,33 +694,32 @@ class LoveLocker {
 
         // Get the current website URL
         const currentUrl = window.location.origin + window.location.pathname;
-        const fallbackUrl = window.LOVELOCKER_CONFIG?.websiteUrl || 'https://yourusername.github.io/love-locker';
+        const fallbackUrl = window.LOVELOCKER_CONFIG?.websiteUrl || 'https://love-locker.vercel.app';
         
         const emailData = {
-            to_email: this.currentUser.email,
-            to_name: this.currentUser.name,
-            letter_title: letter.title,
-            unlock_date: new Date(letter.unlockDate).toLocaleDateString(),
-            created_date: new Date(letter.createdAt).toLocaleDateString(),
-            secret_code: letter.secretCode,
-            app_url: currentUrl || fallbackUrl,
-            partner_name: this.partner ? this.partner.name : 'Your Partner'
+            to: this.currentUser.email,
+            subject: `💕 LoveLocker - Letter Ready to Unlock!`,
+            html: this.generateLetterNotificationEmail(letter, currentUrl || fallbackUrl),
+            type: 'letter_notification'
         };
 
         try {
-            // Try to send real email if EmailJS is configured
-            if (typeof emailjs !== 'undefined' && this.emailConfig.publicKey !== 'YOUR_EMAILJS_PUBLIC_KEY') {
-                await emailjs.send(
-                    this.emailConfig.serviceId,
-                    this.emailConfig.templateId,
-                    emailData
-                );
-                console.log('📧 Email sent successfully via EmailJS');
+            // Send email via Gmail API
+            const response = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(emailData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                console.log('📧 Email sent successfully via Gmail:', result.messageId);
                 this.showNotification('Email notification sent!', 'success');
             } else {
-                // Fallback to simulation
-                console.log('📧 Email notification (simulation):', emailData);
-                this.showNotification('Email notification prepared (EmailJS not configured)', 'info');
+                throw new Error(result.error || 'Failed to send email');
             }
         } catch (error) {
             console.error('📧 Email sending failed:', error);
@@ -685,6 +727,51 @@ class LoveLocker {
         }
 
         return emailData;
+    }
+
+    generateLetterNotificationEmail(letter, appUrl) {
+        return `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h1 style="text-align: center; font-family: 'Dancing Script', cursive; font-size: 2.5rem; margin-bottom: 20px;">💕 LoveLocker</h1>
+                
+                <div style="background: white; color: #333; padding: 30px; border-radius: 15px; margin: 20px 0;">
+                    <h2 style="color: #ff6b9d; margin-bottom: 15px;">A Love Letter is Ready to Unlock! 💌</h2>
+                    
+                    <p>Dear ${this.currentUser.name},</p>
+                    
+                    <p>Great news! A time capsule letter from ${this.partner ? this.partner.name : 'your partner'} is ready to be unlocked today!</p>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #ff6b9d;">
+                        <h3 style="margin: 0 0 10px 0; color: #333;">Letter Details:</h3>
+                        <p style="margin: 5px 0;"><strong>Title:</strong> ${letter.title}</p>
+                        <p style="margin: 5px 0;"><strong>Unlock Date:</strong> ${new Date(letter.unlockDate).toLocaleDateString()}</p>
+                        <p style="margin: 5px 0;"><strong>Created:</strong> ${new Date(letter.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h4 style="margin: 0 0 10px 0; color: #856404;">🔑 Your Secret Code</h4>
+                        <p style="margin: 0 0 10px 0; color: #856404;">Use this secret code to unlock your letter:</p>
+                        <div style="background: #f8f9fa; border: 2px solid #ff6b9d; padding: 10px; border-radius: 5px; text-align: center; margin: 10px 0;">
+                            <strong style="font-size: 1.2rem; color: #333; font-family: 'Courier New', monospace;">${letter.secretCode}</strong>
+                        </div>
+                        <p style="margin: 10px 0 0 0; color: #856404; font-size: 0.9rem;">Visit your LoveLocker and enter this code to unlock and read your special message!</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${appUrl}" style="background: linear-gradient(135deg, #ff6b9d, #ff8fab); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">💕 Open LoveLocker</a>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; border: 1px solid #e1e5e9; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                        <p style="margin: 0 0 10px 0; color: #666; font-size: 0.9rem;">Can't click the button? Copy and paste this link:</p>
+                        <a href="${appUrl}" style="color: #ff6b9d; text-decoration: none; font-weight: bold; word-break: break-all;">${appUrl}</a>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 0.9rem; text-align: center; margin-top: 30px;">
+                        Made with 💕 by LoveLocker
+                    </p>
+                </div>
+            </div>
+        `;
     }
 
     showBrowserNotification(letter) {
