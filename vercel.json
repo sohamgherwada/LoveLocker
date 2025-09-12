@@ -1,4 +1,5 @@
 {
+  "buildCommand": "echo 'Static files - no build needed'",
   "outputDirectory": ".",
   "rewrites": [
     {

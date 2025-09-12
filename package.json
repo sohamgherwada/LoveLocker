@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npx serve . -p 8000",
     "dev": "npx live-server --port=8000 --open=/index.html",
-    "build": "echo 'No build process needed - static files only'",
+    "build": "echo 'Static files - no build needed'",
     "deploy": "vercel --prod",
     "preview": "vercel"
   },
