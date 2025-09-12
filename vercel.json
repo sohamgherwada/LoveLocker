@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "love-locker",
   "builds": [
     {
       "src": "index.html",
@@ -31,10 +30,5 @@
         }
       ]
     }
-  ],
-  "functions": {
-    "app/api/email": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }
