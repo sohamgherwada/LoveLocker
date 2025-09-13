@@ -6,6 +6,8 @@
 -- Drop existing tables if they exist (for clean setup)
 DROP TABLE IF EXISTS letters CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS email_logs CASCADE;
+DROP TABLE IF EXISTS user_sessions CASCADE;
 
 -- =============================================
 -- USERS TABLE
@@ -415,13 +417,47 @@ WHERE s.is_active = TRUE AND s.expires_at > NOW();
 -- GRANTS AND PERMISSIONS
 -- =============================================
 
--- Grant necessary permissions
+-- Grant necessary permissions for authenticated users
 GRANT SELECT, INSERT, UPDATE ON users TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON letters TO authenticated;
 GRANT SELECT ON email_logs TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON user_sessions TO authenticated;
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT EXECUTE ON FUNCTION get_user_stats(UUID) TO authenticated;
+
+-- =============================================
+-- ANONYMOUS USER PERMISSIONS (for serverless functions)
+-- =============================================
+
+-- Allow anonymous users to insert into users table (for registration)
+GRANT INSERT ON users TO anon;
+
+-- Allow anonymous users to select from users table (for login)
+GRANT SELECT ON users TO anon;
+
+-- Allow anonymous users to update users table (for verification)
+GRANT UPDATE ON users TO anon;
+
+-- Allow anonymous users to insert into letters table
+GRANT INSERT ON letters TO anon;
+
+-- Allow anonymous users to select from letters table
+GRANT SELECT ON letters TO anon;
+
+-- Allow anonymous users to update letters table
+GRANT UPDATE ON letters TO anon;
+
+-- Allow anonymous users to insert into email_logs table
+GRANT INSERT ON email_logs TO anon;
+
+-- Allow anonymous users to select from email_logs table
+GRANT SELECT ON email_logs TO anon;
+
+-- Allow anonymous users to use the functions
+GRANT EXECUTE ON FUNCTION generate_connection_code() TO anon;
+GRANT EXECUTE ON FUNCTION generate_secret_code() TO anon;
+GRANT EXECUTE ON FUNCTION generate_verification_code() TO anon;
+GRANT EXECUTE ON FUNCTION get_user_stats(UUID) TO anon;
 
 -- =============================================
 -- COMMENTS FOR DOCUMENTATION
