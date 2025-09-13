@@ -8,7 +8,9 @@
     "dev": "npx live-server --port=8000 --open=/index.html",
     "build": "echo 'Static files - no build needed'",
     "deploy": "vercel --prod",
-    "preview": "vercel"
+    "preview": "vercel",
+    "test-api": "node test-api.js",
+    "deploy-script": "./deploy.sh"
   },
   "keywords": [
     "love",
@@ -24,7 +26,8 @@
   "license": "MIT",
   "dependencies": {
     "nodemailer": "^6.9.7",
-    "@supabase/supabase-js": "^2.38.4"
+    "@supabase/supabase-js": "^2.38.4",
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
     "live-server": "^1.2.2",

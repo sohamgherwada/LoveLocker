@@ -1,16 +1,18 @@
 // Vercel Serverless Function for user management
-import { createClient } from '@supabase/supabase-js'
+const { createClient } = require('@supabase/supabase-js')
+const bcrypt = require('bcryptjs')
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing Supabase environment variables')
+  throw new Error('Missing required environment variables')
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
@@ -38,6 +40,10 @@ export default async function handler(req, res) {
         return await handleUpdateUser(req, res, data)
       case 'connectUsers':
         return await handleConnectUsers(req, res, data)
+      case 'forgotPassword':
+        return await handleForgotPassword(req, res, data)
+      case 'resetPassword':
+        return await handleResetPassword(req, res, data)
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -89,6 +95,10 @@ async function handleRegister(req, res, data) {
   const connectionCode = generateConnectionCode()
   const verificationCode = generateVerificationCode()
 
+  // Hash the password
+  const saltRounds = 12
+  const hashedPassword = await bcrypt.hash(password, saltRounds)
+
   // Create new user (unverified)
   const { data: user, error } = await supabase
     .from('users')
@@ -97,7 +107,7 @@ async function handleRegister(req, res, data) {
         name,
         email,
         age: parseInt(age),
-        password, // In production, hash this password
+        password: hashedPassword,
         connection_code: connectionCode,
         email_verified: false,
         verification_code: verificationCode,
@@ -142,10 +152,15 @@ async function handleLogin(req, res, data) {
     .from('users')
     .select('*')
     .eq('email', email)
-    .eq('password', password)
     .single()
 
   if (error || !user) {
+    return res.status(401).json({ error: 'Invalid credentials' })
+  }
+
+  // Verify password using bcrypt
+  const isPasswordValid = await bcrypt.compare(password, user.password)
+  if (!isPasswordValid) {
     return res.status(401).json({ error: 'Invalid credentials' })
   }
 
@@ -157,6 +172,15 @@ async function handleLogin(req, res, data) {
       userId: user.id
     })
   }
+
+  // Update last login and login count
+  await supabase
+    .from('users')
+    .update({ 
+      last_login: new Date().toISOString(),
+      login_count: (user.login_count || 0) + 1
+    })
+    .eq('id', user.id)
 
   // Remove password from response
   const { password: _, ...userWithoutPassword } = user
@@ -466,4 +490,176 @@ function generateVerificationCode() {
     result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   return result
+}
+
+async function handleForgotPassword(req, res, data) {
+  const { email } = data
+
+  if (!email) {
+    return res.status(400).json({ error: 'Missing email address' })
+  }
+
+  // Find user by email
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email)
+    .single()
+
+  if (error || !user) {
+    return res.status(404).json({ error: 'No account found with that email address' })
+  }
+
+  // Generate reset token
+  const resetToken = generateResetToken()
+  const resetTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+  // Update user with reset token
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ 
+      reset_token: resetToken,
+      reset_token_expiry: resetTokenExpiry.toISOString()
+    })
+    .eq('id', user.id)
+
+  if (updateError) {
+    console.error('Reset token update error:', updateError)
+    return res.status(500).json({ error: 'Failed to generate reset token' })
+  }
+
+  // Send reset email
+  try {
+    await sendPasswordResetEmail(user, resetToken)
+  } catch (emailError) {
+    console.error('Failed to send reset email:', emailError)
+    return res.status(500).json({ error: 'Failed to send reset email' })
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'Password reset link sent to your email!'
+  })
+}
+
+async function handleResetPassword(req, res, data) {
+  const { resetToken, newPassword } = data
+
+  if (!resetToken || !newPassword) {
+    return res.status(400).json({ error: 'Missing reset token or new password' })
+  }
+
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long' })
+  }
+
+  // Find user by reset token
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('reset_token', resetToken)
+    .single()
+
+  if (error || !user) {
+    return res.status(400).json({ error: 'Invalid reset token' })
+  }
+
+  // Check if token is expired
+  if (new Date() > new Date(user.reset_token_expiry)) {
+    return res.status(400).json({ error: 'Reset token has expired' })
+  }
+
+  // Hash new password
+  const saltRounds = 12
+  const hashedPassword = await bcrypt.hash(newPassword, saltRounds)
+
+  // Update user with new password and clear reset token
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ 
+      password: hashedPassword,
+      reset_token: null,
+      reset_token_expiry: null
+    })
+    .eq('id', user.id)
+
+  if (updateError) {
+    console.error('Password reset update error:', updateError)
+    return res.status(500).json({ error: 'Failed to reset password' })
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'Password reset successfully!'
+  })
+}
+
+function generateResetToken() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
+async function sendPasswordResetEmail(user, resetToken) {
+  const resetUrl = `${process.env.VERCEL_URL || 'http://localhost:3000'}?reset_token=${resetToken}`
+  
+  const emailData = {
+    to: user.email,
+    subject: `💕 LoveLocker - Password Reset Request`,
+    html: generatePasswordResetEmail(user, resetUrl),
+    type: 'password_reset'
+  }
+
+  try {
+    const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/send-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(emailData)
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to send email')
+    }
+
+    console.log('📧 Password reset email sent:', result.messageId)
+  } catch (error) {
+    console.error('📧 Password reset email failed:', error)
+    throw error
+  }
+}
+
+function generatePasswordResetEmail(user, resetUrl) {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+      <h1 style="text-align: center; font-family: 'Dancing Script', cursive; font-size: 2.5rem; margin-bottom: 20px;">💕 LoveLocker</h1>
+      
+      <div style="background: white; color: #333; padding: 30px; border-radius: 15px; margin: 20px 0;">
+        <h2 style="color: #ff6b9d; margin-bottom: 15px;">Password Reset Request 🔐</h2>
+        
+        <p>Dear ${user.name},</p>
+        
+        <p>We received a request to reset your LoveLocker password. If you made this request, click the button below to set a new password.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" style="background: linear-gradient(135deg, #ff6b9d, #ff8fab); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Reset Password</a>
+        </div>
+        
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <h4 style="margin: 0 0 10px 0; color: #856404;">⚠️ Security Notice</h4>
+          <p style="margin: 0; color: #856404; font-size: 0.9rem;">If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
+        </div>
+        
+        <p style="color: #666; font-size: 0.9rem; text-align: center; margin-top: 30px;">
+          Made with 💕 by LoveLocker
+        </p>
+      </div>
+    </div>
+  `;
 }

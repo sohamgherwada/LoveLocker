@@ -25,5 +25,16 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/users.js": {
+      "maxDuration": 30
+    },
+    "api/send-email.js": {
+      "maxDuration": 30
+    },
+    "api/letters.js": {
+      "maxDuration": 30
+    }
+  }
 }

@@ -515,25 +515,27 @@ class LoveLocker {
         const email = document.getElementById('resetEmail').value;
         
         try {
-            const user = await this.findUserByEmail(email);
-            if (user) {
-                // Generate reset token
-                const resetToken = this.generateResetToken();
-                user.resetToken = resetToken;
-                user.resetTokenExpiry = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-                
-                // Update user in storage
-                this.updateUserInStorage(user);
-                
-                // Send reset email
-                await this.sendPasswordResetEmail(user, resetToken);
-                
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'forgotPassword',
+                    email
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
                 this.hideModal('forgotPasswordModal');
-                this.showNotification('Password reset link sent to your email!', 'success');
+                this.showNotification(result.message || 'Password reset link sent to your email!', 'success');
             } else {
-                this.showNotification('No account found with that email address', 'error');
+                this.showNotification(result.error || 'Failed to send reset email', 'error');
             }
         } catch (error) {
+            console.error('Forgot password error:', error);
             this.showNotification('Failed to send reset email. Please try again.', 'error');
         }
     }
@@ -548,145 +550,49 @@ class LoveLocker {
             return;
         }
         
-        if (newPassword.length < 6) {
-            this.showNotification('Password must be at least 6 characters long', 'error');
+        if (newPassword.length < 8) {
+            this.showNotification('Password must be at least 8 characters long', 'error');
             return;
         }
         
         try {
             const resetToken = this.getResetTokenFromURL();
-            const user = await this.findUserByResetToken(resetToken);
             
-            if (user && user.resetTokenExpiry > Date.now()) {
-                // Update password
-                user.password = newPassword;
-                user.resetToken = null;
-                user.resetTokenExpiry = null;
-                
-                // Update user in storage
-                this.updateUserInStorage(user);
-                
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'resetPassword',
+                    resetToken,
+                    newPassword
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
                 this.hideModal('resetPasswordModal');
-                this.showNotification('Password reset successfully! You can now login with your new password.', 'success');
+                this.showNotification(result.message || 'Password reset successfully! You can now login with your new password.', 'success');
                 
                 // Clear URL parameters
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else {
-                this.showNotification('Invalid or expired reset token', 'error');
+                this.showNotification(result.error || 'Failed to reset password', 'error');
             }
         } catch (error) {
+            console.error('Reset password error:', error);
             this.showNotification('Failed to reset password. Please try again.', 'error');
         }
     }
 
-    async findUserByEmail(email) {
-        const users = this.getStoredUsers();
-        return users.find(u => u.email === email) || null;
-    }
-
-    async findUserByResetToken(token) {
-        const users = this.getStoredUsers();
-        return users.find(u => u.resetToken === token) || null;
-    }
-
-    generateResetToken() {
-        // Generate a secure reset token
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let result = '';
-        for (let i = 0; i < 32; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
 
     getResetTokenFromURL() {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get('reset_token');
     }
 
-    updateUserInStorage(updatedUser) {
-        const users = this.getStoredUsers();
-        const userIndex = users.findIndex(u => u.id === updatedUser.id);
-        if (userIndex !== -1) {
-            users[userIndex] = updatedUser;
-            localStorage.setItem('loveLockerUsers', JSON.stringify(users));
-        }
-    }
-
-    async sendPasswordResetEmail(user, resetToken) {
-        const resetUrl = `${window.location.origin}${window.location.pathname}?reset_token=${resetToken}`;
-        const appUrl = window.location.origin + window.location.pathname;
-        
-        const emailData = {
-            to: user.email,
-            subject: `💕 LoveLocker - Password Reset Request`,
-            html: this.generatePasswordResetEmail(user, resetUrl, appUrl),
-            type: 'password_reset'
-        };
-
-        try {
-            // Send email via Gmail API
-            const response = await fetch('/api/send-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(emailData)
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                console.log('📧 Password reset email sent via Gmail:', result.messageId);
-            } else {
-                throw new Error(result.error || 'Failed to send email');
-            }
-        } catch (error) {
-            console.error('📧 Password reset email failed:', error);
-            this.showNotification('Failed to send reset email', 'error');
-        }
-
-        return emailData;
-    }
-
-    generatePasswordResetEmail(user, resetUrl, appUrl) {
-        return `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                <h1 style="text-align: center; font-family: 'Dancing Script', cursive; font-size: 2.5rem; margin-bottom: 20px;">💕 LoveLocker</h1>
-                
-                <div style="background: white; color: #333; padding: 30px; border-radius: 15px; margin: 20px 0;">
-                    <h2 style="color: #ff6b9d; margin-bottom: 15px;">Password Reset Request 🔐</h2>
-                    
-                    <p>Dear ${user.name},</p>
-                    
-                    <p>We received a request to reset your LoveLocker password. If you made this request, click the button below to set a new password.</p>
-                    
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #ff6b9d;">
-                        <h3 style="margin: 0 0 10px 0; color: #333;">Reset Your Password</h3>
-                        <p style="margin: 5px 0; color: #666;">This link will expire in 24 hours for security reasons.</p>
-                    </div>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="${resetUrl}" style="background: linear-gradient(135deg, #ff6b9d, #ff8fab); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Reset Password</a>
-                    </div>
-                    
-                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                        <h4 style="margin: 0 0 10px 0; color: #856404;">⚠️ Security Notice</h4>
-                        <p style="margin: 0; color: #856404; font-size: 0.9rem;">If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
-                    </div>
-                    
-                    <div style="background: #f8f9fa; border: 1px solid #e1e5e9; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                        <p style="margin: 0 0 10px 0; color: #666; font-size: 0.9rem;">Can't click the button? Copy and paste this link:</p>
-                        <a href="${resetUrl}" style="color: #ff6b9d; text-decoration: none; font-weight: bold; word-break: break-all;">${resetUrl}</a>
-                    </div>
-                    
-                    <p style="color: #666; font-size: 0.9rem; text-align: center; margin-top: 30px;">
-                        Made with 💕 by LoveLocker
-                    </p>
-                </div>
-            </div>
-        `;
-    }
 
     checkPasswordReset() {
         const resetToken = this.getResetTokenFromURL();
